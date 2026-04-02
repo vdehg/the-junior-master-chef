@@ -1,0 +1,21 @@
+<input id="user" placeholder="Gebruiker">
+<input id="pw" type="password" placeholder="Wachtwoord">
+<button onclick="login()">Login</button>
+
+
+<script>
+async function login() {
+const res = await fetch('https://api.jouwsite.nl/login', {
+method: 'POST',
+headers: {'Content-Type':'application/json'},
+body: JSON.stringify({
+username: user.value,
+password: pw.value
+})
+});
+
+
+const data = await res.json();
+localStorage.token = data.token;
+}
+</script>
