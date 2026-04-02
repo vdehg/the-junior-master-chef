@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Junior Master Chef</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Navigatie -->
+    <nav class="navbar">
+        <div class="nav-brand" onclick="showPage('home')">
+            <span class="logo">&#127859;</span>
+            <span class="brand-text">The Junior Master Chef</span>
+        </div>
+        <div class="nav-links">
+            <a href="#" onclick="showPage('home')" class="nav-link active" data-page="home">Home</a>
+            <a href="#" onclick="showPage('videos')" class="nav-link" data-page="videos">Video's</a>
+            <a href="#" onclick="showPage('feedback')" class="nav-link" data-page="feedback">Feedback</a>
+            <a href="#" onclick="showPage('admin')" class="nav-link admin-only" data-page="admin" style="display:none;">Admin Panel</a>
+            <a href="#" onclick="showPage('login')" class="nav-link" data-page="login" id="nav-login">Inloggen</a>
+            <a href="#" onclick="logout()" class="nav-link" id="nav-logout" style="display:none;">Uitloggen</a>
+        </div>
+        <div class="nav-user" id="nav-user" style="display:none;">
+            <span class="user-icon">&#128100;</span>
+            <span id="nav-username"></span>
+        </div>
+        <button class="hamburger" onclick="toggleMenu()">&#9776;</button>
+    </nav>
+
+    <!-- Home Pagina -->
+    <section id="page-home" class="page active">
+        <div class="hero">
+            <div class="hero-content">
+                <h1>Welkom bij <span class="highlight">The Junior Master Chef</span></h1>
+                <p>Ontdek heerlijke kookvideo's, leer nieuwe recepten en word een echte junior chef!</p>
+                <button class="btn btn-primary" onclick="showPage('videos')">Bekijk Video's</button>
+            </div>
+            <div class="hero-image">&#127858;</div>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">&#127860;</div>
+                <h3>Kookvideo's</h3>
+                <p>Bekijk stap-voor-stap kookvideo's van heerlijke gerechten.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">&#128218;</div>
+                <h3>Recepten</h3>
+                <p>Leer nieuwe recepten van beginners tot gevorderd niveau.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">&#11088;</div>
+                <h3>Word een Chef</h3>
+                <p>Verbeter je kookvaardigheden en verras je familie en vrienden!</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Video's Pagina -->
+    <section id="page-videos" class="page">
+        <div class="container">
+            <h2>Kookvideo's</h2>
+            <div id="videos-login-msg" class="login-message" style="display:none;">
+                <p>&#128274; Je moet ingelogd zijn om de video's te bekijken.</p>
+                <button class="btn btn-primary" onclick="showPage('login')">Inloggen</button>
+            </div>
+            <div id="videos-grid" class="videos-grid"></div>
+            <div id="no-videos-msg" class="empty-message" style="display:none;">
+                <p>&#127916; Er zijn nog geen video's beschikbaar. Kom later terug!</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Login / Register Pagina -->
+    <section id="page-login" class="page">
+        <div class="auth-container">
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('login')">Inloggen</button>
+                <button class="auth-tab" onclick="switchAuthTab('register')">Registreren</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form" onsubmit="handleLogin(event)">
+                <h2>Inloggen</h2>
+                <div class="form-group">
+                    <label for="login-email">E-mail</label>
+                    <input type="email" id="login-email" required placeholder="jouw@email.nl">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Wachtwoord</label>
+                    <input type="password" id="login-password" required placeholder="Je wachtwoord">
+                </div>
+                <div id="login-error" class="error-msg"></div>
+                <button type="submit" class="btn btn-primary btn-full">Inloggen</button>
+                <p class="auth-hint">Admin? Gebruik je admin e-mail en wachtwoord.</p>
+            </form>
+
+            <!-- Register Form -->
+            <form id="register-form" class="auth-form" style="display:none;" onsubmit="handleRegister(event)">
+                <h2>Account Aanmaken</h2>
+                <div class="form-group">
+                    <label for="reg-name">Naam</label>
+                    <input type="text" id="reg-name" required placeholder="Je naam">
+                </div>
+                <div class="form-group">
+                    <label for="reg-email">E-mail</label>
+                    <input type="email" id="reg-email" required placeholder="jouw@email.nl">
+                </div>
+                <div class="form-group">
+                    <label for="reg-password">Wachtwoord</label>
+                    <input type="password" id="reg-password" required minlength="6" placeholder="Minimaal 6 tekens">
+                </div>
+                <div class="form-group">
+                    <label for="reg-password2">Wachtwoord bevestigen</label>
+                    <input type="password" id="reg-password2" required placeholder="Herhaal wachtwoord">
+                </div>
+                <div id="register-error" class="error-msg"></div>
+                <div id="register-success" class="success-msg"></div>
+                <button type="submit" class="btn btn-primary btn-full">Registreren</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Admin Panel -->
+    <section id="page-admin" class="page">
+        <div class="container">
+            <h2>&#128272; Admin Panel</h2>
+
+            <div class="admin-section">
+                <h3>Nieuwe Video Toevoegen</h3>
+                <form id="video-form" onsubmit="handleAddVideo(event)">
+                    <div class="form-group">
+                        <label for="video-title">Titel</label>
+                        <input type="text" id="video-title" required placeholder="Naam van het gerecht">
+                    </div>
+                    <div class="form-group">
+                        <label for="video-description">Beschrijving</label>
+                        <textarea id="video-description" required placeholder="Korte beschrijving van het recept..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="video-url">YouTube URL</label>
+                        <input type="url" id="video-url" required placeholder="https://www.youtube.com/watch?v=...">
+                        <small>Plak hier de volledige YouTube link</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="video-category">Categorie</label>
+                        <select id="video-category">
+                            <option value="ontbijt">Ontbijt</option>
+                            <option value="lunch">Lunch</option>
+                            <option value="diner">Diner</option>
+                            <option value="dessert">Dessert</option>
+                            <option value="snack">Snack</option>
+                        </select>
+                    </div>
+                    <div id="video-error" class="error-msg"></div>
+                    <div id="video-success" class="success-msg"></div>
+                    <button type="submit" class="btn btn-primary">Video Toevoegen</button>
+                </form>
+            </div>
+
+            <div class="admin-section">
+                <h3>Beheer Video's</h3>
+                <div id="admin-videos-list" class="admin-videos-list"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Feedback Pagina -->
+    <section id="page-feedback" class="page">
+        <div class="container">
+            <h2>Feedback</h2>
+            <p>Heb je een vraag, suggestie of opmerking? Laat het ons weten!</p>
+
+            <form id="feedback-form" class="feedback-form" onsubmit="handleFeedback(event)">
+                <div class="form-group">
+                    <label for="fb-name">Naam</label>
+                    <input type="text" id="fb-name" required placeholder="Je naam">
+                </div>
+                <div class="form-group">
+                    <label for="fb-email">E-mail</label>
+                    <input type="email" id="fb-email" required placeholder="jouw@email.nl">
+                </div>
+                <div class="form-group">
+                    <label for="fb-subject">Onderwerp</label>
+                    <input type="text" id="fb-subject" required placeholder="Waar gaat je bericht over?">
+                </div>
+                <div class="form-group">
+                    <label for="fb-message">Bericht</label>
+                    <textarea id="fb-message" required placeholder="Typ hier je bericht..." rows="5"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Verstuur Feedback</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2026 The Junior Master Chef. Alle rechten voorbehouden.</p>
+            <p>Contact: <a href="mailto:the-junior-master-chef@outlook.com">the-junior-master-chef@outlook.com</a></p>
+        </div>
+    </footer>
+
+    <!-- Toast Notificatie -->
+    <div id="toast" class="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
