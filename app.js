@@ -20,12 +20,11 @@ function initApp() {
     if (!localStorage.getItem('tjmc_users')) {
         localStorage.setItem('tjmc_users', JSON.stringify([]));
     }
-    // Zorg dat er een videos array bestaat
-    if (!localStorage.getItem('tjmc_videos')) {
-        localStorage.setItem('tjmc_videos', JSON.stringify([]));
-    }
-    updateUI();
-    loadVideos();
+    // Open database en laad UI
+    openDB().then(() => {
+        updateUI();
+        loadVideos();
+    });
 }
 
 // ==========================================
@@ -221,70 +220,132 @@ function updateUI() {
 }
 
 // ==========================================
-// VIDEO'S
+// INDEXEDDB - Video Opslag
 // ==========================================
 
-function getVideos() {
-    return JSON.parse(localStorage.getItem('tjmc_videos') || '[]');
+let db = null;
+
+function openDB() {
+    return new Promise((resolve, reject) => {
+        if (db) { resolve(db); return; }
+        const request = indexedDB.open('tjmc_db', 1);
+        request.onupgradeneeded = (e) => {
+            const database = e.target.result;
+            if (!database.objectStoreNames.contains('videos')) {
+                database.createObjectStore('videos', { keyPath: 'id' });
+            }
+        };
+        request.onsuccess = (e) => { db = e.target.result; resolve(db); };
+        request.onerror = () => reject('Database kon niet geopend worden.');
+    });
 }
 
-function saveVideos(videos) {
-    localStorage.setItem('tjmc_videos', JSON.stringify(videos));
+function dbGetAllVideos() {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('videos', 'readonly');
+            const store = tx.objectStore('videos');
+            const request = store.getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject('Kon video\'s niet ophalen.');
+        });
+    });
 }
 
-function extractYouTubeId(url) {
-    const patterns = [
-        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-        /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/
-    ];
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match) return match[1];
-    }
-    return null;
+function dbAddVideo(videoData) {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('videos', 'readwrite');
+            const store = tx.objectStore('videos');
+            const request = store.add(videoData);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject('Kon video niet opslaan.');
+        });
+    });
 }
+
+function dbDeleteVideo(id) {
+    return openDB().then(db => {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('videos', 'readwrite');
+            const store = tx.objectStore('videos');
+            const request = store.delete(id);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject('Kon video niet verwijderen.');
+        });
+    });
+}
+
+// ==========================================
+// VIDEO'S
+// ==========================================
 
 function handleAddVideo(e) {
     e.preventDefault();
     const title = document.getElementById('video-title').value.trim();
     const description = document.getElementById('video-description').value.trim();
-    const url = document.getElementById('video-url').value.trim();
+    const fileInput = document.getElementById('video-file');
     const category = document.getElementById('video-category').value;
     const errorEl = document.getElementById('video-error');
     const successEl = document.getElementById('video-success');
+    const submitBtn = document.querySelector('#video-form .btn');
     errorEl.textContent = '';
     successEl.textContent = '';
 
-    const youtubeId = extractYouTubeId(url);
-    if (!youtubeId) {
-        errorEl.textContent = 'Ongeldige YouTube URL. Gebruik een geldige YouTube link.';
+    const file = fileInput.files[0];
+    if (!file) {
+        errorEl.textContent = 'Selecteer een videobestand.';
         return;
     }
 
-    const videos = getVideos();
-    videos.unshift({
-        id: Date.now().toString(),
-        title,
-        description,
-        youtubeId,
-        category,
-        dateAdded: new Date().toLocaleDateString('nl-NL')
-    });
-    saveVideos(videos);
+    if (!file.type.startsWith('video/')) {
+        errorEl.textContent = 'Dit is geen geldig videobestand.';
+        return;
+    }
 
-    successEl.textContent = 'Video succesvol toegevoegd!';
-    document.getElementById('video-form').reset();
-    loadAdminVideos();
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Uploaden...';
 
-    setTimeout(() => { successEl.textContent = ''; }, 3000);
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const videoData = {
+            id: Date.now().toString(),
+            title,
+            description,
+            category,
+            fileName: file.name,
+            fileType: file.type,
+            fileData: event.target.result,
+            dateAdded: new Date().toLocaleDateString('nl-NL')
+        };
+
+        dbAddVideo(videoData).then(() => {
+            successEl.textContent = 'Video succesvol geupload!';
+            document.getElementById('video-form').reset();
+            loadAdminVideos();
+            setTimeout(() => { successEl.textContent = ''; }, 3000);
+        }).catch(err => {
+            errorEl.textContent = 'Fout bij opslaan: ' + err;
+        }).finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Video Toevoegen';
+        });
+    };
+    reader.onerror = function() {
+        errorEl.textContent = 'Kon het bestand niet lezen.';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Video Toevoegen';
+    };
+    reader.readAsArrayBuffer(file);
 }
 
 function deleteVideo(id) {
     if (!confirm('Weet je zeker dat je deze video wilt verwijderen?')) return;
-    const videos = getVideos().filter(v => v.id !== id);
-    saveVideos(videos);
-    loadAdminVideos();
-    showToast('Video verwijderd.', 'success');
+    dbDeleteVideo(id).then(() => {
+        loadAdminVideos();
+        loadVideos();
+        showToast('Video verwijderd.', 'success');
+    });
 }
 
 function loadVideos() {
@@ -301,53 +362,64 @@ function loadVideos() {
     }
 
     loginMsg.style.display = 'none';
-    grid.style.display = 'grid';
 
-    const videos = getVideos();
+    dbGetAllVideos().then(videos => {
+        // Sorteer nieuwste eerst
+        videos.sort((a, b) => parseInt(b.id) - parseInt(a.id));
 
-    if (videos.length === 0) {
-        grid.style.display = 'none';
-        noVideosMsg.style.display = 'block';
-        return;
-    }
+        if (videos.length === 0) {
+            grid.style.display = 'none';
+            noVideosMsg.style.display = 'block';
+            return;
+        }
 
-    noVideosMsg.style.display = 'none';
-    grid.innerHTML = videos.map(video => `
-        <div class="video-card">
-            <iframe
-                src="https://www.youtube.com/embed/${video.youtubeId}"
-                title="${video.title}"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen
-                loading="lazy">
-            </iframe>
-            <div class="video-info">
-                <h3>${escapeHtml(video.title)}</h3>
-                <p>${escapeHtml(video.description)}</p>
-                <span class="video-category">${escapeHtml(video.category)}</span>
-            </div>
-        </div>
-    `).join('');
+        noVideosMsg.style.display = 'none';
+        grid.style.display = 'grid';
+        grid.innerHTML = '';
+
+        videos.forEach(video => {
+            const blob = new Blob([video.fileData], { type: video.fileType });
+            const url = URL.createObjectURL(blob);
+
+            const card = document.createElement('div');
+            card.className = 'video-card';
+            card.innerHTML = `
+                <video controls preload="metadata">
+                    <source src="${url}" type="${video.fileType}">
+                    Je browser ondersteunt geen video.
+                </video>
+                <div class="video-info">
+                    <h3>${escapeHtml(video.title)}</h3>
+                    <p>${escapeHtml(video.description)}</p>
+                    <span class="video-category">${escapeHtml(video.category)}</span>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    });
 }
 
 function loadAdminVideos() {
     const list = document.getElementById('admin-videos-list');
-    const videos = getVideos();
 
-    if (videos.length === 0) {
-        list.innerHTML = '<p style="color:#999; padding:1rem;">Nog geen video\'s toegevoegd.</p>';
-        return;
-    }
+    dbGetAllVideos().then(videos => {
+        videos.sort((a, b) => parseInt(b.id) - parseInt(a.id));
 
-    list.innerHTML = videos.map(video => `
-        <div class="admin-video-item">
-            <div class="admin-video-info">
-                <h4>${escapeHtml(video.title)}</h4>
-                <span>${video.category} &bull; ${video.dateAdded}</span>
+        if (videos.length === 0) {
+            list.innerHTML = '<p style="color:#999; padding:1rem;">Nog geen video\'s toegevoegd.</p>';
+            return;
+        }
+
+        list.innerHTML = videos.map(video => `
+            <div class="admin-video-item">
+                <div class="admin-video-info">
+                    <h4>${escapeHtml(video.title)}</h4>
+                    <span>${video.category} &bull; ${video.dateAdded}</span>
+                </div>
+                <button class="btn btn-danger" onclick="deleteVideo('${video.id}')">Verwijderen</button>
             </div>
-            <button class="btn btn-danger" onclick="deleteVideo('${video.id}')">Verwijderen</button>
-        </div>
-    `).join('');
+        `).join('');
+    });
 }
 
 // ==========================================
